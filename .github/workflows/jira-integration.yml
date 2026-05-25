@@ -1,0 +1,55 @@
+name: GitHub Issue to Jira Automation
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  create-jira-issue-and-branch:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. 登入 Jira
+      - name: Login to Jira
+        uses: atlassian/gajira-login@v3
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
+      # 2. 在 Jira 建立卡片
+      - name: Create Jira Issue
+        id: create
+        uses: atlassian/gajira-create@v3
+        with:
+          project: 'KAN' # ⚠️請改成你的 Jira 專案代碼 (例如 KAN 或 TEST)
+          issuetype: 'Task'
+          summary: '${{ github.event.issue.title }}'
+          description: '${{ github.event.issue.body }}'
+
+      # 3. 在 GitHub Issue 下方自動留言回報 Jira 編號
+      - name: Comment on GitHub Issue
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🎉 已自動連結到 Jira 任務：[${{ steps.create.outputs.issue }}](${{ secrets.JIRA_BASE_URL }}/browse/${{ steps.create.outputs.issue }})`
+            })
+
+      # 4. 自動建立對應的 Git Branch
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Create Git Branch
+        run: |
+          # 將 Issue 標題中的空格轉為網址友善的底線或橫線
+          CLEAN_TITLE=$(echo "${{ github.event.issue.title }}" | sed 's/[^a-zA-Z0-9]/-/g' | tr '[:upper:]' '[:lower:]')
+          BRANCH_NAME="feature/${{ steps.create.outputs.issue }}-${CLEAN_TITLE}"
+          
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git checkout -b $BRANCH_NAME
+          git push origin $BRANCH_NAME
