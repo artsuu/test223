@@ -33,6 +33,9 @@ def main():
 
             print(f"\nBMI 值：{bmi:.2f}")
             print(f"體重狀態：{category}")
+
+            if bmi > 50:
+                print("\n[Warning] BMI 值極度異常，請立即就醫並注意健康！")
             print("\n--- BMI 對照表 ---")
             print("< 18.5   體重過輕")
             print("18.5–24  正常體重")
